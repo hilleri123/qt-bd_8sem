@@ -98,6 +98,7 @@ def initDatabase1():
     tmp_product = Product.create(name = "anti-coronovirus", praise = 999999, store = tmp_store)
     tmp_storage = Storage.create(adress = "fantasy", product = tmp_product)
     tmp_supply = Supply.create(product = tmp_product, count = 1, date = datetime.datetime(2024, 10, 1, 12, 24))
+    tmp_supply = Supply.create(product = tmp_product, count = 111, date = datetime.datetime(2026, 10, 1, 12, 24))
     tmp_product = Product.create(name = "mal'chik", praise = 100000*1000000, store = tmp_store)
     tmp_storage = Storage.create(adress = "u drakoshi", product = tmp_product)
     tmp_rate = Rate.create(author = "na zabore", stars = 3, product = tmp_product)
@@ -151,7 +152,7 @@ class MyDataBase:
 
     #Добавим че надо
     def add(self, num, author, prod):
-        finded = Product.select().where(Product.name == prod).get()
+        finded = Product.get(Product.name == prod)
         if finded is None:
             return
         Rate.create(author = author, stars = num, product = finded)
@@ -159,20 +160,21 @@ class MyDataBase:
     #первый запрос
     def first(self, name):
         tmp = [(str(i.date), i.count) for i in Supply.select().join(Product).where(Product.name == name)]
+        tmp.append(("all", Supply.select(fn.SUM(Supply.count)).join(Product).where(Product.name == name).scalar()))
         #Напомню. tmp - Это типа двумерный массив(таблица) ["supplies ...", ...] - Это список имен колонок
         return MyModel(tmp, ["supplies of '"+name+"'", "count"])
 
     #Второй запрос
     def second(self, substr):
-        tmp = [(i.adress, i.product.store.name, i.product.name, i.product.praise) for i in 
+        tmp = [(i.adress, i.product.name, i.product.praise) for i in 
                 Storage.select().join(Product).join(Store).where(Store.name.contains(substr)).order_by(Product.praise)]
-        return MyModel(tmp, ['adress of storages', 'organization', 'products', 'praise'])
+        return MyModel(tmp, ['adress of storages', 'products', 'praise'])
 
     #Неожиданно но третий запрос
     def third(self, num, date):
-        tmp = [(i.stars, i.author, i.product.name, i.product.store.adress) for i in 
+        tmp = [(i.stars, i.product.name, i.product.store.adress) for i in 
                 Rate.select().join(Product).join(Supply).switch(Product).join(Store).join(Cashier).where((Supply.date > date) & (Cashier.salary < num))]
-        return MyModel(tmp, ['rate', 'author', 'product', 'store adress'])
+        return MyModel(tmp, ['rate', 'product', 'store adress'])
 
 
 
