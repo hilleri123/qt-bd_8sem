@@ -18,6 +18,11 @@ import myDatabase
 
 
 class Msg:
+    def __init__(self, img=None, text=None, f=None):
+        if img != None:
+            self.set_img(img, f)
+        elif text != None:
+            self.set_text(text, f)
     def set_img(self, img, f = None):
         self.f = f
         self.img = img
@@ -74,7 +79,8 @@ class Dialog(QWidget):
 class myDialog(QWidget):
     #Тупа конструктор
     #l - лист типа [(надпись, виджет с которого будем получать ввод), ...] title - заголовок окошка
-    def __init__(self, msgs, title = "question", parent = None):
+    def __init__(self, msgs, title = "question", d_id = None, parent = None):
+        self.d_id = d_id
         #Конструктор родителя а именно КуТэДиалога. super() - это типа батя
         super().__init__(parent, QtCore.Qt.Window)
         #Метод установки заголовка он у родителя поэтому от родителя его и дернем
@@ -87,19 +93,37 @@ class myDialog(QWidget):
         self.msg_layout = QVBoxLayout()
         tmp_layout = QHBoxLayout()
 
-        for msg in msgs:
-            self.msg_layout.addWidget(msg)
-
         layout.addLayout(self.msg_layout)
         layout.addLayout(tmp_layout)
         self.send = QPushButton("Send")
+        self.send.clicked.connect(self.send_msg)
         self.text = QLineEdit()
         self.attach = QPushButton("Send Pic")
+        self.send.clicked.connect(self.attach_msg)
         tmp_layout.addWidget(self.text)
         tmp_layout.addWidget(self.attach)
         tmp_layout.addWidget(self.send)
+        
+        self.img = None
 
+        self.update(msgs)
 
+    def update(self, msgs):
+        for i in reversed(range(self.msg_layout.count())): 
+            self.msg_layout.itemAt(i).widget().deleteLater()
+        for msg in msgs:
+            self.msg_layout.addWidget(msg)
+
+    def attach_msg(self):
+        pass
+
+    send_sig = QtCore.pyqtSignal(str)
+    def send_msg(self):
+        m = Msg(text=self.text.text())
+        msg = Message(m)
+        self.msg_layout.addWidget(msg)
+        self.send_sig.emit(self.text.text())
+        self.text.clear()
 
 
 
@@ -156,8 +180,13 @@ class MainWindow(QMainWindow):
         msgs.append(Message(m))
 
         self.md = myDialog(msgs, title=d.author, parent=self)
+        self.md.send_sig.connect(self.msg_sended)
         self.md.show()
 
+    def msg_sended(self, msg):
+        md = self.sender()
+        print('from me to', md.d_id, ':', msg)
+        #self._myDatabase.add_msg()
 
 
 #Это то как все делают чтоб при импорте данного файла куда-то ничего не работало а работало тока тута
