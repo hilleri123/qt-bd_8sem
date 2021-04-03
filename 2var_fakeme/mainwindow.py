@@ -1,6 +1,6 @@
 
 from PyQt5.QtWidgets import (QMainWindow, QWidget,
-        QPushButton, QLineEdit, QInputDialog, QComboBox, QLabel, QSpinBox, QCalendarWidget, QTreeView, QVBoxLayout, QHBoxLayout)
+        QPushButton, QLineEdit, QInputDialog, QComboBox, QLabel, QSpinBox, QCalendarWidget, QTableView, QTreeView, QVBoxLayout, QHBoxLayout)
 
 import myDatabase
 
@@ -11,7 +11,7 @@ class MainWindow(QMainWindow):
 
         self._dictexe = {"первый запрос":(self.firstQuery, self.firstExe), "второй запрос":(self.secondQuery, self.secondExe), "третий запрос":(self.thirdQuery, self.thirdExe)}
 
-        self._view = QTreeView()
+        self._view = QTableView()
 
         self._buttonAdd = QPushButton("Добавить")
         self._buttonAdd.clicked.connect(self.getItems)
