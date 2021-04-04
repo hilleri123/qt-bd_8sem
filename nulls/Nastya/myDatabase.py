@@ -1,56 +1,54 @@
-
 import datetime
-
+import sqlite3
 from peewee import *
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import QAbstractTableModel, QVariant
 
-#Пишем свою модель потому что там проще и она будет наследником QAbst...TableModel по той же причине
-class MyModel(QAbstractTableModel):
-    #Тупа конструктор
-    def __init__(self, items, labels):
-        super().__init__()
-        #Скопируем че нада
-        #Итемы тут [[00, 01, ...], [10, 11, ...], ...]
-        self.list = items.copy()
-        #Это названия колонок
-        self.colLabels = labels.copy()
-
-    #Так принято прегружать виртуальные методы 
-    def rowCount(self, parent):
-        return len(self.list)
-
-    def columnCount(self, parent):
-        return len(self.colLabels)
-    
-    def headerData(self, section, orientation, role):
-        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
-            return QVariant(self.colLabels[section])
-        return QVariant()
-
-    #Тут тоже так принято
-    def data(self, index, role):
-        if not index.isValid() or role != QtCore.Qt.DisplayRole and role != QtCore.Qt.EditRole:
-            return QVariant()
-        val = ''
-        if role == QtCore.Qt.DisplayRole:
-            try:
-                #Мы не знаем как на передали список и шо там поэтому так
-                tmp = self.list[index.row()]
-                #Чтоб было одинковый интерфейс сделаем тупле если внутри список то он станет туплом если там соло итем то он станет туплом
-                val = tuple(tmp)[index.column()]
-            except IndexError:
-                pass
-        return val
-
-
-
-
-
-
 #Так надо читай доки
 mainDatabase = SqliteDatabase(None)
+print(mainDatabase)
+
+
+class Msg:
+    def __init__(self, msg=None, text=None, img=None, f=None, date=None, m_id=None, replay=None, avatar=None):
+        self.text = text
+        self.img = img
+        self.f = f
+        self.avatar = avatar
+        self.date = date
+        if self.date == None:
+            self.date = QtCore.QDateTime.currentDateTime()
+        self.m_id = m_id
+        self.replay = replay
+        if msg != None:
+            self.text = msg.text
+            self.img = msg.img
+            self.f = msg.f
+            self.date = QtCore.QDateTime(msg.date)
+            self.m_id = msg.id
+            self.replay = Msg(replay)
+            self.avatar = msg.dialog.account.avatar
+
+    def is_text(self):
+        return self.text != None
+
+    def is_img(self):
+        return self.img != None
+
+    def is_f(self):
+        return self.f != None and self.f
+    
+    def __str__(self):
+        res = ''
+        if self.m_id != None:
+            res += str(self.m_id) + ' '
+        if self.text != None:
+            res += self.text + ' '
+        if self.replay != None:
+            res += '/ ' + str(self.replay) + ' '
+        return res
+
 
 #Чтоб в каждый класс не писать
 class BaseModel(Model):
@@ -59,60 +57,39 @@ class BaseModel(Model):
         database = mainDatabase
 
 #Класс - Таблица в ней поля
-class Store(BaseModel):
+
+class DBAccount(BaseModel):
+    name = CharField(unique = True)
+    avatar = CharField()
+
+class DBDialog(BaseModel):
+    date = DateField()
+    account = ForeignKeyField(DBAccount)
+
+class DBMessage(BaseModel):
     #Чар поле с именем "name"
-    name = CharField()
     #Это поле пусть уникально
-    adress = CharField(unique = True)
-
-class Product(BaseModel):
-    name = CharField(unique = True)
-    praise = IntegerField()
-    #store - Это ключе к таблице Store может быть пустым поросто так
-    store = ForeignKeyField(Store, null = True)
-
-class Storage(BaseModel):
-    adress = CharField(unique = True)
-    #backref - значит что у Product появится ключк storage к Storage
-    product = ForeignKeyField(Product, backref="storage")
-
-class Rate(BaseModel):
-    author = CharField()
-    stars = IntegerField()
-    product = ForeignKeyField(Product)
-
-class Supply(BaseModel):
-    product = ForeignKeyField(Product)
-    count = IntegerField()
-    date = DateTimeField()
-
-class Cashier(BaseModel):
-    store = ForeignKeyField(Store)
-    name = CharField(unique = True)
-    salary = IntegerField()
+    text = CharField(null = True)
+    img = CharField(null = True)
+    f = BooleanField(default=True)
+    date = DateField()
+    dialog = ForeignKeyField(DBDialog)
+    replay = ForeignKeyField('self', null = True)
 
 
 #Заполним первый магазин
 def initDatabase1():
-    tmp_store = Store.create(name = "6shesterechka", adress = "prospect nezavisimosti 17")
-    tmp_product = Product.create(name = "anti-coronovirus", praise = 999999, store = tmp_store)
-    tmp_storage = Storage.create(adress = "fantasy", product = tmp_product)
-    tmp_supply = Supply.create(product = tmp_product, count = 1, date = datetime.datetime(2024, 10, 1, 12, 24))
-    tmp_supply = Supply.create(product = tmp_product, count = 111, date = datetime.datetime(2026, 10, 1, 12, 24))
-    tmp_product = Product.create(name = "mal'chik", praise = 100000*1000000, store = tmp_store)
-    tmp_storage = Storage.create(adress = "u drakoshi", product = tmp_product)
-    tmp_rate = Rate.create(author = "na zabore", stars = 3, product = tmp_product)
-    tmp_supply = Supply.create(product = tmp_product, count = 33, date = datetime.datetime(1999, 10, 1, 12, 24))
-    tmp_cash = Cashier.create(store = tmp_store, name = "Petya", salary = 1)
+    acc = DBAccount.create(name="Aaa", avatar="/home/shurik/Documents/лунтик.jpg")
+    d = DBDialog.create(account=acc, date=datetime.datetime(2020, 2, 1, 12, 0))
+    m = DBMessage.create(text="bbb", date=datetime.datetime(2020, 2, 1, 12, 0), f=True, dialog=d)
+    m = DBMessage.create(text="ccc", date=datetime.datetime(2020, 2, 1, 12, 2), f=False, dialog=d, replay=m)
 
 #Второй магазин
 def initDatabase2():
-    tmp_store = Store.create(name = "RF", adress = "Eurasia")
-    tmp_product = Product.create(store = tmp_store, name = "oil", praise = 1970)
-    tmp_storage = Storage.create(adress = "Ural", product = tmp_product)
-    tmp_rate = Rate.create(author = "Naval'nii", stars = 0, product = tmp_product)
-    tmp_supply = Supply.create(product = tmp_product, count = 10000000000, date = datetime.datetime(2021, 1, 1, 1, 0))
-    tmp_cash = Cashier.create(store = tmp_store, name = "Dima Medvedev", salary = 1000000)
+    acc = DBAccount.create(name="CAaa", avatar="/home/shurik/Documents/Рикардо.jpg")
+    d = DBDialog.create(account=acc, date=datetime.datetime(2020, 2, 1, 13, 0))
+    m = DBMessage.create(text="bbb", date=datetime.datetime(2020, 2, 1, 13, 0), f=True, dialog=d)
+    m = DBMessage.create(text="ccc", date=datetime.datetime(2020, 2, 1, 13, 2), f=False, dialog=d, replay=m)
 
 #Заполним всю бд
 def initDatabase():
@@ -125,7 +102,7 @@ class MyDataBase:
         mainDatabase.init(name)
         #Названия и так говорящие
         mainDatabase.connect()
-        mainDatabase.create_tables([Store, Product, Storage, Rate, Supply, Cashier])
+        mainDatabase.create_tables(BaseModel.__subclasses__())
         try:
             #попробуем заполнить бд если бд уже заполнена то уникальные поля бросят ошибку и мы выйдем
             initDatabase()
@@ -134,47 +111,30 @@ class MyDataBase:
             print("database init canceled")
 
 
-    #Имена магазинов хз зачем
-    def stores(self):
-        return [i.name for i in Store.select()]
+    def dialogs(self):
+        return {i.dialog : Msg(msg=i) for i in DBMessage.select().join(DBDialog).order_by(DBMessage.date).distinct()}
 
-    #Имена товаров
-    def products(self):
-        return [i.name for i in Product.select()]
+    def add_msg(self, d_id, msg):
+        replay = None
+        if msg.replay:
+            replay = msg.replay.m_id
+        f = msg.is_f()
+            
+        print('!'*50, f)
+        if msg.is_text():
+            DBMessage.create(text=msg.text, f=f, dialog=DBDialog.get_by_id(d_id), date=msg.date.toPyDateTime(), replay=replay)
+        if msg.is_img():
+            DBMessage.create(img=msg.img, f=f, dialog=DBDialog.get_by_id(d_id), date=msg.date.toPyDateTime(), replay=replay)
+        #DBMessage.create()
 
-    #Имена товаров у которых есть поставки
-    def products_in_supply(self):
-        return {i.product.name : None for i in Supply.select()}.keys()
-
-    #макс зп
-    def max_salary(self):
-        return Cashier.select(fn.MAX(Cashier.salary)).scalar()
-
-    #Добавим че надо
-    def add(self, num, author, prod):
-        finded = Product.get(Product.name == prod)
-        if finded is None:
-            return
-        Rate.create(author = author, stars = num, product = finded)
-
-    #первый запрос
-    def first(self, name):
-        tmp = [(str(i.date), i.count) for i in Supply.select().join(Product).where(Product.name == name)]
-        tmp.append(("all", Supply.select(fn.SUM(Supply.count)).join(Product).where(Product.name == name).scalar()))
-        #Напомню. tmp - Это типа двумерный массив(таблица) ["supplies ...", ...] - Это список имен колонок
-        return MyModel(tmp, ["supplies of '"+name+"'", "count"])
-
-    #Второй запрос
-    def second(self, substr):
-        tmp = [(i.adress, i.product.name, i.product.praise) for i in 
-                Storage.select().join(Product).join(Store).where(Store.name.contains(substr)).order_by(Product.praise)]
-        return MyModel(tmp, ['adress of storages', 'products', 'praise'])
-
-    #Неожиданно но третий запрос
-    def third(self, num, date):
-        tmp = [(i.stars, i.product.name, i.product.store.adress) for i in 
-                Rate.select().join(Product).join(Supply).switch(Product).join(Store).join(Cashier).where((Supply.date > date) & (Cashier.salary < num))]
-        return MyModel(tmp, ['rate', 'product', 'store adress'])
-
-
+    def messages(self, d_id):
+        tmp = {i : Msg(msg=i) for i in DBMessage.select().join(DBDialog).where(DBDialog.id == d_id)}
+        def add_replay(db_m, m):
+            #print('!!!', db_m, db_m.replay, '!', Msg(db_m))
+            if db_m.replay != None:
+                tmp_db_m = DBMessage.get_by_id(db_m.replay)
+                print('!!!', m, '!', Msg(msg=tmp_db_m))
+                m.replay = add_replay(tmp_db_m, Msg(msg=tmp_db_m))
+            return m
+        return [add_replay(k, i) for k, i in tmp.items()]
 
