@@ -60,10 +60,10 @@ class BaseModel(Model):
 
 class DBAccount(BaseModel):
     name = CharField(unique = True)
-    avatar = CharField()
+    avatar = CharField(null = True)
 
 class DBDialog(BaseModel):
-    date = DateField()
+    date = DateTimeField(default=datetime.datetime.now)
     account = ForeignKeyField(DBAccount)
 
 class DBMessage(BaseModel):
@@ -72,7 +72,7 @@ class DBMessage(BaseModel):
     text = CharField(null = True)
     img = CharField(null = True)
     f = BooleanField(default=True)
-    date = DateField()
+    date = DateTimeField(default=datetime.datetime.now)
     dialog = ForeignKeyField(DBDialog)
     replay = ForeignKeyField('self', null = True)
 
@@ -111,8 +111,22 @@ class MyDataBase:
             print("database init canceled")
 
 
+    def add_dialog(self, img=None, name=''):
+        # Т. к. уже может быть чел с таким же именем
+        try:
+            acc = DBAccount.create(name=name, avatar=img)
+            d = DBDialog.create(account=acc)
+            m = DBMessage.create(text='', dialog=d, f=True)
+        except:
+            print("account with name(", name, ") already exists")
+
     def dialogs(self):
-        return {i.dialog : Msg(msg=i) for i in DBMessage.select().join(DBDialog).order_by(DBMessage.date).distinct()}
+        tmp = [(i, Msg(msg=DBMessage.select().where(i.id == DBMessage.dialog).order_by(DBMessage.date.desc()).get())) for i in DBDialog.select()]
+        tmp = sorted(tmp, key=lambda x : x[1].date)
+        #tmp = [(i.dialog, Msg(msg=i)) for i in DBMessage.select().join(DBDialog).order_by(DBMessage.date)]
+        for idx, _ in enumerate(tmp):
+            tmp[idx][1].replay = None
+        return tmp[::-1]
 
     def add_msg(self, d_id, msg):
         replay = None
@@ -120,11 +134,10 @@ class MyDataBase:
             replay = msg.replay.m_id
         f = msg.is_f()
             
-        print('!'*50, f)
         if msg.is_text():
-            DBMessage.create(text=msg.text, f=f, dialog=DBDialog.get_by_id(d_id), date=msg.date.toPyDateTime(), replay=replay)
+            a = DBMessage.create(text=msg.text, f=f, dialog=DBDialog.get_by_id(d_id), replay=replay)
         if msg.is_img():
-            DBMessage.create(img=msg.img, f=f, dialog=DBDialog.get_by_id(d_id), date=msg.date.toPyDateTime(), replay=replay)
+            DBMessage.create(img=msg.img, f=f, dialog=DBDialog.get_by_id(d_id), replay=replay)
         #DBMessage.create()
 
     def messages(self, d_id):
@@ -133,8 +146,9 @@ class MyDataBase:
             #print('!!!', db_m, db_m.replay, '!', Msg(db_m))
             if db_m.replay != None:
                 tmp_db_m = DBMessage.get_by_id(db_m.replay)
-                print('!!!', m, '!', Msg(msg=tmp_db_m))
                 m.replay = add_replay(tmp_db_m, Msg(msg=tmp_db_m))
+            else:
+                m.replay = None
             return m
         return [add_replay(k, i) for k, i in tmp.items()]
 

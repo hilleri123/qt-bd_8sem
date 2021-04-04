@@ -30,11 +30,15 @@ class Message(QWidget):
         #Поставим лайоут по методу родителя
         super().setLayout(layout)
         
+        self.setAutoFillBackground(True)
+
+        self.change_bg(False)
+
         self.pixmap = QPixmap(self.msg.avatar)
         if self.msg.is_f():
             self.pixmap = QPixmap(base_img)
             
-        self.pixmap = self.pixmap.scaled(QtCore.QSize(20,20),QtCore. Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation);
+        self.pixmap = self.pixmap.scaled(QtCore.QSize(20,20), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation);
 
         def add_author_date(msg):
             l = QHBoxLayout()
@@ -50,7 +54,7 @@ class Message(QWidget):
             l.addStretch()
             return l
 
-        print(msg)
+        #print(msg)
         if msg.is_text():
             label = QLabel(msg.text)
             label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse);
@@ -60,12 +64,10 @@ class Message(QWidget):
             img = QLabel()
             pixmap = QPixmap(msg.img)
             if self.small:
-                pixmap = pixmap.scaled(QtCore.QSize(50,50),QtCore. Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation);
+                pixmap = pixmap.scaled(QtCore.QSize(50,50), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation);
             img.setPixmap(pixmap)
             layout.addRow(img, add_author_date(msg))
-        self.setAutoFillBackground(True)
 
-        self.change_bg(False)
         if msg.replay != None:
             m = Message(msg.replay)
             layout.addRow('', m)
@@ -148,7 +150,7 @@ class myDialog(QWidget):
             self.msg_layout.itemAt(i).widget().deleteLater()
 
         for msg in msgs:
-            print(msg.date)
+            #print(msg.date)
             m = Message(msg)
             m.doubleClicked.connect(self.replay)
             self.msgs[msg] = m
@@ -188,8 +190,45 @@ class myDialog(QWidget):
     def replay(self):
         msg = self.sender()
         self.replay_to = msg.msg
-        print(msg.msg.m_id)
+        #print(msg.msg.m_id)
         self.unselect([self.replay_to])
+
+
+
+
+class Profile(QDialog):
+    #Тупа конструктор
+    #l - лист типа [(надпись, виджет с которого будем получать ввод), ...] title - заголовок окошка
+    def __init__(self, parent=None):
+        #Конструктор родителя а именно КуТэДиалога. super() - это типа батя
+        super().__init__(parent=parent)
+        #Метод установки заголовка он у родителя поэтому от родителя его и дернем
+        super().setWindowTitle("Add dialog with ...")
+        #лайоут это кароч такая штука которая рамещает на себе виджеты так чтоб их размер не зависил он конкретных размеров окна
+        #лайоут все шо надо растянет или сожмет что все по красоте было
+        layout = QFormLayout()
+        self.img = QLabel()
+        self.file = QPushButton()
+        self.file.clicked.connect(self.set_avatar)
+        self.text = QLineEdit()
+        self.img_file = None
+        #Поставим лайоут по методу родителя
+        super().setLayout(layout)
+        #i - надпись j - виджет
+        layout.addRow("Avatar", self.img)
+        layout.addRow("set avatar", self.file)
+        layout.addRow("Name", self.text)
+        #добавим кнопочков стандартных Ок и Cancel тупа патамушта
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        #и их добавим в лайоут
+        layout.addRow(self.buttons)
+        #и главное свяжем кнопочки(кнопоко-коборбку) с методоами диалога чтоб кнопки стали как родные
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+    def set_avatar(self):
+        self.img_file = QFileDialog.getOpenFileName(self, "Attach Img", ".", "Image Files (*.png *.jpg *.jpeg *.bmp * .tif)")[0]
+        self.img.setPixmap(QPixmap(self.img_file))
 
 
 class MainWindow(QMainWindow):
@@ -211,30 +250,44 @@ class MainWindow(QMainWindow):
         w = QWidget()
 
         #Вертикальный лайоут так хочу так и будет
-        mainLayout = QVBoxLayout()
-        w.setLayout(mainLayout)
+        layout = QVBoxLayout()
+        self.mainLayout = QVBoxLayout()
+        w.setLayout(layout)
+        layout.addLayout(self.mainLayout)
 
         #Вот оно будущее. Специфика QMainWindow
         self.setCentralWidget(w)
         
         #dialogs = self._myDatabase.get_dialogs()
         
+        self.add = QPushButton("New Dialog")
+        self.add.clicked.connect(self.new_dialog)
+        layout.addWidget(self.add)
+
+        self.update()
+
+
+    def update(self):
+
+        for i in reversed(range(self.mainLayout.count())): 
+            self.mainLayout.itemAt(i).widget().deleteLater()
+
         dialogs = []
-        for d, m in self._myDatabase.dialogs().items():
+        for d, m in self._myDatabase.dialogs():
             msg = Message(m)
             dialogs.append(Dialog(msg, d.account.name, d.id))
 
         #Пичкуем наши лайоуты всем чем надо
         for d in dialogs:
             d.doubleClicked.connect(self.create_my_dialog)
-            mainLayout.addWidget(d)
+            self.mainLayout.addWidget(d)
 
-        self.add = QPushButton("New Dialog")
-        self.add.clicked.connect(self.new_dialog)
-        mainLayout.addWidget(self.add)
 
     def new_dialog(self):
-        pass
+        d = Profile(self)
+        if d.exec() == QDialog.Accepted:
+            self._myDatabase.add_dialog(name=d.text.text(), img=d.img_file)
+            self.update()
 
     def create_my_dialog(self):
         d = self.sender()
@@ -262,6 +315,8 @@ class MainWindow(QMainWindow):
         #print('from me to', md.d_id, ':', msg)
         self._myDatabase.add_msg(md.d_id, msg)
         md.update(self._myDatabase.messages(md.d_id))
+
+        self.update()
         #md.update(self._myDatabase.get_msg_from_author(md.d_id))
 
 
